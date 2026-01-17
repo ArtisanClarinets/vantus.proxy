@@ -11,7 +11,19 @@ export function generateNginxConfig(tenant: TenantWithRelations): string {
     return `# No domains configured for tenant ${tenant.slug}`;
   }
 
-  const serverNames = tenant.domains.map(d => d.hostname).join(' ');
+  // Security Validation
+  const domainRegex = /^[a-zA-Z0-9.-]+$/;
+  if (!domainRegex.test(primaryDomain)) {
+      throw new Error(`Invalid primary domain: ${primaryDomain}`);
+  }
+
+  const serverNames = tenant.domains.map(d => {
+      if (!domainRegex.test(d.hostname)) {
+          throw new Error(`Invalid domain in list: ${d.hostname}`);
+      }
+      return d.hostname;
+  }).join(' ');
+
   const policy = tenant.policy;
 
   // Defaults
@@ -70,12 +82,7 @@ server {
     }
 
     location / {
-// Assuming "primaryDomain" is a validated, trusted domain string used elsewhere in the config,
-// and that you have validated it previously in your code.
-// If not, you should validate it like:
-// if (!/^[a-zA-Z0-9.-]+$/.test(primaryDomain)) { throw new Error("Invalid domain"); }
-
-return 301 https://${primaryDomain}$request_uri;
+        return 301 https://${primaryDomain}$request_uri;
     }
 }
 
@@ -97,10 +104,7 @@ server {
     proxy_set_header X-Tenant-Slug "${tenant.slug}";
 
     # Proxy Headers
-// FIX: Use a fixed, validated domain instead of $host to prevent host header injection.
-// Replace 'example.com' with your intended primary domain variable or hardcoded value.
-// If your system dynamically supports more domains, use a whitelist check before filling this value.
-proxy_set_header Host ${primaryDomain};
+    proxy_set_header Host ${primaryDomain};
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;

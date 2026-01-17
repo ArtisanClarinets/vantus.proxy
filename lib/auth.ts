@@ -1,6 +1,7 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { prisma } from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -13,27 +14,20 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // Strict Domain Restriction for Internal Control Plane
-        if (!credentials.email.endsWith('@vantus.systems')) {
-            console.log('Access denied: Invalid email domain');
-            return null;
-        }
-
-        let user = await prisma.user.findUnique({
+        const user = await prisma.user.findUnique({
             where: { email: credentials.email }
         });
 
-        // First time login for a valid domain user -> Create them (JIT Provisioning)
-        // In production, this might be connected to an IdP (Okta/Google Workspace)
-        if (!user) {
-            const userCount = await prisma.user.count();
-            user = await prisma.user.create({
-                data: {
-                    email: credentials.email,
-                    name: credentials.email.split('@')[0],
-                    role: userCount === 0 ? 'OWNER' : 'VIEWER' // First user is Owner
-                }
-            });
+        if (!user || !user.password) {
+            console.log('Login failed: User not found or no password');
+            return null;
+        }
+
+        const isValid = await bcrypt.compare(credentials.password, user.password);
+
+        if (!isValid) {
+            console.log('Login failed: Invalid password');
+            return null;
         }
 
         return {
@@ -63,5 +57,8 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
       signIn: '/auth/login',
+  },
+  session: {
+      strategy: 'jwt'
   }
 };
