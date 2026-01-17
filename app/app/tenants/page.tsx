@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { createTenant } from './actions';
 
+export const dynamic = 'force-dynamic';
+
 export default async function TenantsPage() {
   const tenants = await prisma.tenant.findMany({
     include: { domains: true, deployments: true },

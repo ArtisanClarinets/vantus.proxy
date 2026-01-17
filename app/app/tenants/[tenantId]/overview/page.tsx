@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/db';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 type Params = Promise<{ tenantId: string }>
 
 export default async function TenantOverview(props: { params: Params }) {
