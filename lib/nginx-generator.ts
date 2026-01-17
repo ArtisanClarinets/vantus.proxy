@@ -70,7 +70,12 @@ server {
     }
 
     location / {
-        return 301 https://$host$request_uri;
+// Assuming "primaryDomain" is a validated, trusted domain string used elsewhere in the config,
+// and that you have validated it previously in your code.
+// If not, you should validate it like:
+// if (!/^[a-zA-Z0-9.-]+$/.test(primaryDomain)) { throw new Error("Invalid domain"); }
+
+return 301 https://${primaryDomain}$request_uri;
     }
 }
 
