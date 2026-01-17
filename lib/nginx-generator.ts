@@ -82,7 +82,7 @@ server {
     }
 
     location / {
-        return 301 https://${primaryDomain}$request_uri;
+        return 301 https://$host$request_uri;
     }
 }
 
@@ -104,7 +104,7 @@ server {
     proxy_set_header X-Tenant-Slug "${tenant.slug}";
 
     # Proxy Headers
-    proxy_set_header Host ${primaryDomain};
+    proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
