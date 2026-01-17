@@ -4,6 +4,8 @@ import { ConfigViewer } from '@/components/ConfigViewer';
 import Link from 'next/link';
 import { DeployButton } from '@/components/DeployButton';
 
+export const dynamic = 'force-dynamic';
+
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 
 export default async function RenderPreviewPage(props: {
