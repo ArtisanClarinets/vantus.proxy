@@ -97,7 +97,10 @@ server {
     proxy_set_header X-Tenant-Slug "${tenant.slug}";
 
     # Proxy Headers
-    proxy_set_header Host $host;
+// FIX: Use a fixed, validated domain instead of $host to prevent host header injection.
+// Replace 'example.com' with your intended primary domain variable or hardcoded value.
+// If your system dynamically supports more domains, use a whitelist check before filling this value.
+proxy_set_header Host ${primaryDomain};
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
