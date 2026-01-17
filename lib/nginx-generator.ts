@@ -11,7 +11,19 @@ export function generateNginxConfig(tenant: TenantWithRelations): string {
     return `# No domains configured for tenant ${tenant.slug}`;
   }
 
-  const serverNames = tenant.domains.map(d => d.hostname).join(' ');
+  // Security Validation
+  const domainRegex = /^[a-zA-Z0-9.-]+$/;
+  if (!domainRegex.test(primaryDomain)) {
+      throw new Error(`Invalid primary domain: ${primaryDomain}`);
+  }
+
+  const serverNames = tenant.domains.map(d => {
+      if (!domainRegex.test(d.hostname)) {
+          throw new Error(`Invalid domain in list: ${d.hostname}`);
+      }
+      return d.hostname;
+  }).join(' ');
+
   const policy = tenant.policy;
 
   // Defaults
