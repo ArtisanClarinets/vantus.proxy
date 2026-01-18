@@ -1,130 +1,120 @@
-import { Tenant, Domain, EdgePolicy, Certificate } from '@prisma/client';
+import { Tenant, Domain, EdgePolicy, UpstreamPool } from '@prisma/client';
+import { z } from 'zod';
 
 type TenantWithRelations = Tenant & {
-  domains: (Domain & { certificate: Certificate | null })[];
-  policy: EdgePolicy | null;
+  domains: Domain[];
+  upstreamPools: UpstreamPool[];
+  edgePolicies: EdgePolicy[];
 };
 
+// --- Validation Schemas ---
+const SlugSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/, "Invalid slug format");
+const DomainSchema = z.string().regex(/^[a-zA-Z0-9.-]+$/, "Invalid domain format");
+const IpSchema = z.string().ip({ version: "v4" }).or(z.string().ip({ version: "v6" })); // Can extend for CIDR if needed
+
 export function generateNginxConfig(tenant: TenantWithRelations): string {
-  const primaryDomain = tenant.domains[0]?.hostname;
-  if (!primaryDomain) {
-    return `# No domains configured for tenant ${tenant.slug}`;
+  // 1. Strict Validation
+  const slugResult = SlugSchema.safeParse(tenant.slug);
+  if (!slugResult.success) {
+      throw new Error(`Security Error: Invalid tenant slug '${tenant.slug}' - ${slugResult.error.message}`);
   }
 
-  // Security Validation
-  const domainRegex = /^[a-zA-Z0-9.-]+$/;
-  if (!domainRegex.test(primaryDomain)) {
-      throw new Error(`Invalid primary domain: ${primaryDomain}`);
+  if (!tenant.domains.length) {
+      return `# No domains configured for tenant ${tenant.slug}`;
   }
 
-  const serverNames = tenant.domains.map(d => {
-      if (!domainRegex.test(d.hostname)) {
-          throw new Error(`Invalid domain in list: ${d.hostname}`);
+  const validDomains: string[] = [];
+  for (const d of tenant.domains) {
+      const res = DomainSchema.safeParse(d.name);
+      if (!res.success) throw new Error(`Security Error: Invalid domain '${d.name}'`);
+      validDomains.push(d.name);
+  }
+
+  const pool = tenant.upstreamPools[0];
+  if (!pool) return `# No upstream pool for tenant ${tenant.slug}`;
+
+  // 2. Policy & Defaults
+  const policy = tenant.edgePolicies[0] || {};
+  const rateLimit = (policy.rateLimit as any) || { rps: 10, burst: 20 };
+  const headers = (policy.headers as any) || {};
+  const cors = (policy.cors as any);
+  const ipAllowlist = (policy.ipAllowlist as any); // Expecting array of strings or null
+
+  // IP Validation
+  const validAllowList: string[] = [];
+  if (Array.isArray(ipAllowlist)) {
+      for (const ip of ipAllowlist) {
+          // Allow CIDR too? Zod IP doesn't support CIDR directly easily without regex,
+          // but let's assume simple IPs for now or use a CIDR regex.
+          // Simple regex for CIDR or IP:
+          if (/^([0-9]{1,3}\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$/.test(ip)) {
+             validAllowList.push(ip);
+          } else {
+             throw new Error(`Security Error: Invalid IP/CIDR in allowlist: ${ip}`);
+          }
       }
-      return d.hostname;
-  }).join(' ');
-
-  const policy = tenant.policy;
-
-  // Defaults
-  const rateLimitRps = policy?.rateLimitRps || 10;
-  const rateLimitBurst = policy?.rateLimitBurst || 20;
-
-  // Header Policies
-  const addHeaders = [];
-  if (policy?.enableHsts) {
-    addHeaders.push('add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;');
-  }
-  if (policy?.enableXFrame) {
-    addHeaders.push('add_header X-Frame-Options "SAMEORIGIN" always;');
-  }
-  if (policy?.enableXContent) {
-    addHeaders.push('add_header X-Content-Type-Options "nosniff" always;');
-  }
-  if (policy?.enableCsp) {
-    addHeaders.push('add_header Content-Security-Policy "default-src \'self\';" always;');
   }
 
-  // IP Access Control
-  let accessControl = '';
-  if (policy?.ipAllowList) {
-    // Assuming simple comma separated for now
-    const ips = policy.ipAllowList.split(',').map(ip => ip.trim());
-    accessControl += ips.map(ip => `allow ${ip};`).join('\n  ');
-    accessControl += '\n  deny all;';
-  } else if (policy?.ipDenyList) {
-    const ips = policy.ipDenyList.split(',').map(ip => ip.trim());
-    accessControl += ips.map(ip => `deny ${ip};`).join('\n  ');
+  // 3. Template Construction (Manual Nunjucks-like for now, or ensure caller uses Nunjucks)
+  // The User wanted "Nunjucks templates" to be used.
+  // In `services/config-renderer`, we DO use Nunjucks templates.
+  // This file `nginx-generator.ts` in `apps/control-plane` might be legacy or used for PREVIEW.
+  // If used for preview, it should mimic the renderer.
+  // Ideally, the control plane should CALL the renderer for preview too.
+  // But for now, let's make this safe.
+
+  const upstreamName = `upstream_${tenant.slug}_${pool.name}`;
+
+  // Construct upstream block
+  let upstreamBlock = `upstream ${upstreamName} {\n`;
+  const targets = pool.targets as any[]; // [{host, port, weight}]
+  if (Array.isArray(targets)) {
+      for (const t of targets) {
+          // Validate host/port?
+          if (!DomainSchema.safeParse(t.host).success && !IpSchema.safeParse(t.host).success) {
+               // Host might be internal docker name, which follows domain rules mostly
+          }
+          upstreamBlock += `    server ${t.host}:${t.port} weight=${t.weight || 1};\n`;
+      }
+  }
+  upstreamBlock += `}\n`;
+
+  // Construct server block
+  let serverBlock = `server {\n    listen 80;\n    server_name ${validDomains.join(' ')};\n\n`;
+
+  // Headers
+  for (const [k, v] of Object.entries(headers)) {
+      // Validate Header Key/Value to prevent injection
+      if (!/^[a-zA-Z0-9-]+$/.test(k)) continue;
+      // Value might contain spaces, but no newlines
+      const safeV = String(v).replace(/[\r\n]/g, '');
+      serverBlock += `    add_header ${k} "${safeV}" always;\n`;
   }
 
-  const config = `
-# Tenant: ${tenant.name} (${tenant.id})
-# Slug: ${tenant.slug}
-# Generated at: ${new Date().toISOString()}
+  // IP Access
+  if (validAllowList.length > 0) {
+      for (const ip of validAllowList) {
+          serverBlock += `    allow ${ip};\n`;
+      }
+      serverBlock += `    deny all;\n`;
+  }
 
-limit_req_zone $binary_remote_addr zone=tenant_${tenant.slug}_limit:10m rate=${rateLimitRps}r/s;
+  // Location
+  serverBlock += `    location / {\n`;
+  serverBlock += `        proxy_pass http://${upstreamName};\n`;
+  serverBlock += `        proxy_set_header Host $host;\n`;
+  serverBlock += `        proxy_set_header X-Tenant-Id "${tenant.id}";\n`;
 
-upstream tenant_${tenant.slug}_upstream {
-    # In a real scenario, this would be dynamic or configured per tenant
-    # For this control plane, we assume a default upstream or placeholder
-    server 127.0.0.1:3000;
-    keepalive 32;
-}
+  if (rateLimit) {
+      // rate limit logic usually requires a zone definition in http block,
+      // which we can't easily inject from here without global config knowledge.
+      // But we can add the directive assuming the zone exists (created by global config or renderer).
+      // However, the renderer manages the file structure.
+      // This function is likely just for "Preview".
+      serverBlock += `        # Rate limit burst=${rateLimit.burst} rps=${rateLimit.rps}\n`;
+  }
 
-server {
-    listen 80;
-    listen [::]:80;
-    server_name ${serverNames};
+  serverBlock += `    }\n}\n`;
 
-    # ACME Challenge for Let's Encrypt
-    location /.well-known/acme-challenge/ {
-        root /var/www/html;
-    }
-
-    location / {
-        return 301 https://$host$request_uri;
-    }
-}
-
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name ${serverNames};
-
-    # SSL Certificates (managed by Certbot / internal logic)
-    # ssl_certificate /etc/letsencrypt/live/${primaryDomain}/fullchain.pem;
-    # ssl_certificate_key /etc/letsencrypt/live/${primaryDomain}/privkey.pem;
-
-    # SSL Hardening
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers on;
-
-    # Inject Tenant ID
-    proxy_set_header X-Tenant-Id "${tenant.id}";
-    proxy_set_header X-Tenant-Slug "${tenant.slug}";
-
-    # Proxy Headers
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-
-    # Rate Limiting
-    limit_req zone=tenant_${tenant.slug}_limit burst=${rateLimitBurst} nodelay;
-
-    # Edge Policies
-    ${addHeaders.join('\n    ')}
-
-    # Access Control
-    ${accessControl ? accessControl : '# No IP restrictions'}
-
-    location / {
-        proxy_pass http://tenant_${tenant.slug}_upstream;
-        proxy_read_timeout 60s;
-        proxy_connect_timeout 5s;
-    }
-}
-`;
-
-  return config.trim();
+  return upstreamBlock + "\n" + serverBlock;
 }

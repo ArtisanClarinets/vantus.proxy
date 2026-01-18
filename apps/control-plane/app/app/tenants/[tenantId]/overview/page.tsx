@@ -12,7 +12,9 @@ export default async function TenantOverview({ params }: { params: Promise<{ ten
 
     return (
         <div className="space-y-6">
-            <h2 className="text-xl font-semibold">Overview</h2>
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Overview</h2>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white p-6 rounded shadow">
                     <div className="text-gray-500 text-sm uppercase font-medium">Domains</div>

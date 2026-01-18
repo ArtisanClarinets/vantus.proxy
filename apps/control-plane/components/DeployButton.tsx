@@ -1,20 +1,38 @@
-'use client';
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-import { deployTenantConfig } from '@/app/app/nginx/actions';
-import { useState } from 'react';
-import { Upload } from 'lucide-react';
-
-export function DeployButton({ tenantId }: { tenantId: string }) {
+export default function DeployButton({ tenantId }: { tenantId: string }) {
     const [loading, setLoading] = useState(false);
+    const router = useRouter();
 
     const handleDeploy = async () => {
-        if (!confirm('Are you sure you want to deploy this configuration to the Edge?')) return;
+        if (!confirm("Are you sure you want to deploy configuration for this tenant?")) return;
         setLoading(true);
         try {
-            await deployTenantConfig(tenantId);
-            alert('Deployment successful!');
+            // 1. Render Config
+            const renderRes = await fetch(`${process.env.NEXT_PUBLIC_CONFIG_RENDERER_URL || 'http://localhost:3001'}/render`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenantId }) // Filter by tenant if supported, else renders all (current simple implementation renders all)
+            });
+
+            if (!renderRes.ok) throw new Error("Render failed");
+            const { files, hash } = await renderRes.json();
+
+            // 2. Deploy
+            const deployRes = await fetch(`${process.env.NEXT_PUBLIC_CONFIG_RENDERER_URL || 'http://localhost:3001'}/deploy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ files, hash })
+            });
+
+            if (!deployRes.ok) throw new Error("Deploy failed");
+            alert("Deployment successful!");
+            router.refresh();
         } catch (e) {
-            alert('Deployment failed: ' + (e as any).message);
+            console.error(e);
+            alert("Deployment failed: " + e);
         } finally {
             setLoading(false);
         }
@@ -24,10 +42,9 @@ export function DeployButton({ tenantId }: { tenantId: string }) {
         <button
             onClick={handleDeploy}
             disabled={loading}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50"
         >
-            <Upload className="w-4 h-4" />
-            {loading ? 'Deploying...' : 'Deploy to Edge'}
+            {loading ? "Deploying..." : "Deploy Config"}
         </button>
     );
 }

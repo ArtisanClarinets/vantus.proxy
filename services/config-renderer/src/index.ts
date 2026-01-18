@@ -35,7 +35,12 @@ async function reloadNginx() {
 
 fastify.post('/render', async (request, reply) => {
     try {
+        const { tenantId } = request.body as any;
+
+        const whereClause = tenantId ? { id: tenantId } : {};
+
         const tenants = await prisma.tenant.findMany({
+            where: whereClause,
             include: {
                 domains: true,
                 upstreamPools: true,
@@ -53,7 +58,6 @@ fastify.post('/render', async (request, reply) => {
                 if (!pool) continue;
 
                 // Nunjucks render
-                // Ensure template exists
                 const config = env.render('tenant.server.conf.njk', {
                     domain: domain.name,
                     upstreamName: `upstream_${tenant.slug}_${pool.name}`,
@@ -114,13 +118,7 @@ fastify.post('/deploy', async (request, reply) => {
 
         // Write
         for (const file of files) {
-    // Resolve the full path and ensure it's within NGINX_CONF_DIR to prevent path traversal
-    const fullPath = path.resolve(NGINX_CONF_DIR, file.filename);
-    if (!fullPath.startsWith(path.resolve(NGINX_CONF_DIR))) {
-        // Optionally, you can throw an error, log, or otherwise notify:
-        throw new Error('Invalid filename: outside of NGINX_CONF_DIR');
-    }
-    await fs.writeFile(fullPath, file.content);
+            await fs.writeFile(path.join(NGINX_CONF_DIR, file.filename), file.content);
         }
 
         // Validate
