@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Better Auth Models ---
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified Boolean?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions      Session[]
+  accounts      Account[]
+
+  // Application relations
+  memberships   Membership[]
+  auditLogs     AuditLog[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id           String    @id @default(cuid())
+  userId       String
+  accountId    String
+  providerId   String
+  accessToken  String?
+  refreshToken String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope        String?
+  idToken      String?
+  password     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("verification")
+}
+
+// --- Application Models ---
+
+enum Role {
+  OWNER
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  domains           Domain[]
+  upstreamPools     UpstreamPool[]
+  edgePolicies      EdgePolicy[]
+  deployments       DeploymentHistory[]
+  memberships       Membership[]
+  auditLogs         AuditLog[]
+
+  @@map("tenant")
+}
+
+model Domain {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  certificateEvents CertificateEvent[]
+
+  @@map("domain")
+}
+
+model UpstreamPool {
+  id        String   @id @default(cuid())
+  name      String
+  targets   Json
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("upstream_pool")
+}
+
+model EdgePolicy {
+  id          String   @id @default(cuid())
+  tenantId    String   @unique
+  headers     Json?
+  rateLimit   Json?
+  cors        Json?
+  ipAllowlist Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("edge_policy")
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@map("membership")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  tenantId  String?
+  action    String
+  metadata  Json?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  actor     User     @relation(fields: [actorId], references: [id])
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@map("audit_log")
+}
+
+model DeploymentHistory {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  hash      String
+  status    String
+  logs      String?  @db.Text
+  createdAt DateTime @default(now())
+
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@map("deployment_history")
+}
+
+model CertificateEvent {
+  id        String   @id @default(cuid())
+  domainId  String
+  status    String
+  message   String?
+  createdAt DateTime @default(now())
+
+  domain    Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+
+  @@map("certificate_event")
+}

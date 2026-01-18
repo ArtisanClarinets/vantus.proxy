@@ -1,0 +1,23 @@
+[sources.docker]
+type = "docker_logs"
+
+[transforms.parse_logs]
+type = "remap"
+inputs = ["docker"]
+source = '''
+  structured, err = parse_json(.message)
+  if err == null {
+    . = merge(., structured)
+  }
+  if .tenant_id == null {
+    .tenant_id = "system"
+  }
+'''
+
+[sinks.loki]
+type = "loki"
+inputs = ["parse_logs"]
+endpoint = "http://loki:3100"
+encoding.codec = "json"
+labels.tenant_id = "{{ tenant_id }}"
+labels.container_name = "{{ container_name }}"
