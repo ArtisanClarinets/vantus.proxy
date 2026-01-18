@@ -102,7 +102,13 @@ export function generateNginxConfig(tenant: TenantWithRelations): string {
   // Location
   serverBlock += `    location / {\n`;
   serverBlock += `        proxy_pass http://${upstreamName};\n`;
-  serverBlock += `        proxy_set_header Host $host;\n`;
+// Assume you have a list of valid domains (validDomains) and the requested host (requestedHost)
+// Find the validated domain to use for the Host header
+let validatedDomain = validDomains.includes(requestedHost) ? requestedHost : validDomains[0]; // fallback to primaryDomain
+
+// ...
+
+serverBlock += `        proxy_set_header Host ${validatedDomain};\n`;
   serverBlock += `        proxy_set_header X-Tenant-Id "${tenant.id}";\n`;
 
   if (rateLimit) {
