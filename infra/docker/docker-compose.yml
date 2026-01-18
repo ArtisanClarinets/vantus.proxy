@@ -1,0 +1,179 @@
+version: '3.8'
+
+services:
+  mariadb:
+    image: mariadb:10.6
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - vantus-net
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrator:
+    build:
+      context: ../..
+      dockerfile: database/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    networks:
+      - vantus-net
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - vantus-net
+
+  # Observability
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - vantus-net
+
+  vector:
+    image: timberio/vector:latest-alpine
+    volumes:
+      - ../../observability/vector/vector.toml:/etc/vector/vector.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: --config /etc/vector/vector.toml
+    networks:
+      - vantus-net
+    depends_on:
+      - loki
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ../../observability/otel-collector/config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - vantus-net
+
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:latest
+    ports:
+      - "8428:8428"
+    volumes:
+      - vm_data:/victoria-metrics-data
+    command:
+      - "-storageDataPath=/victoria-metrics-data"
+      - "-retentionPeriod=1d"
+    networks:
+      - vantus-net
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ../../observability/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - vantus-net
+    depends_on:
+      - loki
+      - victoriametrics
+
+  # Apps
+  control-plane:
+    build:
+      context: ../..
+      dockerfile: apps/control-plane/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      REDIS_URL: ${REDIS_URL}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    ports:
+      - "3000:3000"
+    networks:
+      - vantus-net
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  config-renderer:
+    build:
+      context: ../..
+      dockerfile: services/config-renderer/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      CONFIG_RENDERER_SECRET: ${CONFIG_RENDERER_SECRET}
+      NGINX_PID_FILE: /var/run/nginx.pid
+    volumes:
+      - nginx_conf:/etc/nginx/conf.d
+      - nginx_run:/var/run # Share PID file
+      - ../nginx/templates:/app/templates # Mount templates for renderer
+      - ../nginx/snippets:/app/snippets # Mount snippets for renderer
+    networks:
+      - vantus-net
+    pid: "service:edge-nginx"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      edge-nginx:
+        condition: service_started
+
+  edge-nginx:
+    image: nginx:alpine
+    volumes:
+      - nginx_conf:/etc/nginx/conf.d
+      - nginx_run:/var/run # Share PID file
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - vantus-net
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certs:/etc/letsencrypt
+      - webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+  cert-watcher:
+    image: alpine
+    command: sh -c "echo 'Cert watcher started'; while true; do sleep 3600; done"
+    networks:
+      - vantus-net
+
+  tenant1-upstream:
+    image: traefik/whoami
+    networks:
+      - vantus-net
+
+  tenant2-upstream:
+    image: traefik/whoami
+    networks:
+      - vantus-net
+
+volumes:
+  mariadb_data:
+  vm_data:
+  nginx_conf:
+  nginx_run:
+  certs:
+  webroot:
+
+networks:
+  vantus-net:

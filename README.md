@@ -1,88 +1,70 @@
-# Vantus Proxy Control Plane
+# Vantus Proxy
 
-The **Vantus Proxy Control Plane** is an enterprise-grade solution designed to centralize the management of Nginx reverse proxies. It enables multi-tenant architecture, automated configuration generation, and granular edge policy enforcement through a modern, secure web interface.
+Enterprise-grade Nginx Control Plane & Proxy with multi-tenancy, RBAC, and observability.
 
-## Key Features
+## Quick Start
 
-- **Multi-Tenancy Management**: Create and manage isolated tenants with unique slugs and domains.
-- **Automated Nginx Configuration**: Dynamically generate production-ready Nginx configurations with best-practice security headers and optimizations.
-- **Edge Policy Control**: Configure rate limiting, CORS, CSP, and IP access lists per tenant without touching Nginx files directly.
-- **Security First**: Built-in input validation, secure authentication, and role-based access control placeholders.
-- **Deployment Simulation**: Preview generated configurations and simulate deployment workflows.
+1.  **Prerequisites**: Docker & Docker Compose.
 
-## Tech Stack
+2.  **Start the Platform**:
+    ```bash
+    cd infra/docker
+    cp .env.example .env
+    docker compose up --build
+    ```
 
-- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
-- **Database**: SQLite (Dev) / PostgreSQL (Prod) via [Prisma ORM](https://www.prisma.io/)
-- **Authentication**: [NextAuth.js](https://next-auth.js.org/) (Credentials Provider with bcrypt)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Language**: TypeScript
+3.  **Access the Dashboard**:
+    Open [http://app.localtest.me:3000](http://app.localtest.me:3000).
+    *   **Email**: `admin@vantus.systems`
+    *   **Password**: `password123`
 
-## Directory Structure
+## Architecture
+
+*   **Control Plane** (`apps/control-plane`): Next.js 16 application for management.
+*   **Config Renderer** (`services/config-renderer`): Generates and deploys Nginx configurations safely.
+*   **Edge Nginx**: The data plane proxying traffic to upstreams.
+*   **Observability**: Vector -> Loki (Logs), OpenTelemetry -> VictoriaMetrics (Metrics).
+
+## Services
+
+| Service | URL (Host) | Description |
+| :--- | :--- | :--- |
+| **Control Plane** | `http://app.localtest.me:3000` | Management Dashboard |
+| **Grafana** | `http://localhost:3002` | Metrics & Logs Dashboards (`admin`/`admin`) |
+| **Tenant 1** | `http://tenant1.localtest.me` | Demo Tenant 1 (Proxied) |
+| **Tenant 2** | `http://tenant2.localtest.me` | Demo Tenant 2 (Proxied) |
+| **VictoriaMetrics** | `http://localhost:8428` | Prometheus-compatible metrics |
+| **Loki** | `http://localhost:3100` | Log aggregation |
+
+## Development
+
+### Commands
+
+*   `pnpm install`: Install dependencies.
+*   `pnpm test`: Run unit tests.
+*   `pnpm e2e`: Run Playwright E2E tests.
+*   `pnpm --filter database generate`: Generate Prisma client.
+
+### Directory Structure
 
 ```
-├── app/                  # Next.js App Router (Pages & API)
-│   ├── app/              # Protected Application Routes (Dashboard, Tenants)
-│   ├── auth/             # Authentication Routes (Login)
-│   └── api/              # API Endpoints
-├── components/           # Reusable React Components
-├── lib/                  # Core Business Logic
-│   ├── auth.ts           # Authentication Configuration
-│   ├── db.ts             # Database Client
-│   ├── nginx-generator.ts# Nginx Config Generation Engine
-│   └── proxy-control.ts  # Mock Deployment Logic
-├── prisma/               # Database Schema & Migrations
-├── public/               # Static Assets
-└── scripts/              # Utility Scripts (Admin Creation, Seeding)
+/vantus-proxy
+  /apps
+    /control-plane       # Next.js App
+  /services
+    /config-renderer     # Config Generator Service
+  /infra
+    /docker              # Docker Compose
+    /nginx               # Templates
+  /observability         # OTel, Vector, Grafana configs
+  /database              # Prisma Schema & Seeds
 ```
 
-## Getting Started
+## Known Limitations
 
-### Prerequisites
+*   **Migrations**: In this demo environment, migrations are not committed as SQL files because a running DB was not available during generation. The system relies on `prisma db push` or manual migration generation on first run.
+*   **Certificates**: Self-signed certificates or Let's Encrypt staging should be used for `*.localtest.me`.
 
-- Node.js 18+
-- npm or yarn
+## License
 
-### Installation
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/vantus/proxy-control-plane.git
-    cd proxy-control-plane
-    ```
-
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
-
-3.  **Setup the database:**
-    ```bash
-    # Ensure DATABASE_URL is set in .env (defaults to file:./dev.db for dev)
-    npx prisma db push
-    ```
-
-4.  **Create an Admin User:**
-    Since registration is restricted, use the provided script to create your first admin user.
-    ```bash
-    npx tsx scripts/create-admin.ts admin@vantus.systems mysecurepassword
-    ```
-
-5.  **Run the development server:**
-    ```bash
-    npm run dev
-    ```
-
-6.  **Access the application:**
-    Open [http://localhost:3000](http://localhost:3000) and log in with the credentials you created.
-
-## Security & Production Readiness
-
-This application has been reviewed for production readiness:
-- **Secure Authentication**: Passwords are hashed using `bcryptjs`.
-- **Input Validation**: Strict validation on domain names and slugs prevents Nginx configuration injection attacks.
-- **Optimized Builds**: unused dependencies removed, build scripts verified.
-
-## Future Expansion
-
-See [TODO.md](./TODO.md) for the roadmap, including real-time metrics integration, audit logging implementation, and external Nginx agent development.
+Private.
