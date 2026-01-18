@@ -114,7 +114,13 @@ fastify.post('/deploy', async (request, reply) => {
 
         // Write
         for (const file of files) {
-            await fs.writeFile(path.join(NGINX_CONF_DIR, file.filename), file.content);
+    // Resolve the full path and ensure it's within NGINX_CONF_DIR to prevent path traversal
+    const fullPath = path.resolve(NGINX_CONF_DIR, file.filename);
+    if (!fullPath.startsWith(path.resolve(NGINX_CONF_DIR))) {
+        // Optionally, you can throw an error, log, or otherwise notify:
+        throw new Error('Invalid filename: outside of NGINX_CONF_DIR');
+    }
+    await fs.writeFile(fullPath, file.content);
         }
 
         // Validate
