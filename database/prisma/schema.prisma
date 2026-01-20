@@ -336,6 +336,8 @@ model Incident {
   updatedAt DateTime @updatedAt
 
   @@map("incident")
+}
+
 model Metric {
   id        String   @id @default(cuid())
   tenantId  String?
