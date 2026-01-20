@@ -1,6 +1,7 @@
 import { prisma } from "database";
 import { redirect } from "next/navigation";
 import { requireRole, logAudit } from "@/lib/actions";
+import { billing } from "@/lib/billing";
 export const dynamic = 'force-dynamic';
 
 export default async function CreateTenantPage() {
@@ -16,8 +17,19 @@ export default async function CreateTenantPage() {
             throw new Error("Invalid slug");
         }
 
+        // Create Billing Customer
+        const customer = await billing.customers.create({
+            email: "admin@vantus.systems", // Use actual user email in context
+            name: name,
+            metadata: { slug }
+        });
+
         const tenant = await prisma.tenant.create({
-            data: { name, slug }
+            data: {
+                name,
+                slug,
+                stripeCustomerId: customer.id
+            }
         });
 
         // Create default domain
