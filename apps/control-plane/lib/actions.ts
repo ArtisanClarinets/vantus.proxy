@@ -1,4 +1,5 @@
 import { prisma } from "database";
+import { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -34,7 +35,7 @@ export async function requireRole(allowedRoles: Role[], tenantId?: string) {
     return user;
 }
 
-export async function logAudit(action: string, metadata: any, tenantId?: string) {
+export async function logAudit(action: string, metadata: Prisma.InputJsonValue, tenantId?: string) {
     const user = await getCurrentUser();
     const headersList = await headers();
     const ip = headersList.get("x-forwarded-for") || "unknown";
@@ -44,7 +45,7 @@ export async function logAudit(action: string, metadata: any, tenantId?: string)
         data: {
             actorId: user?.id || 'system',
             action,
-            metadata: metadata || {},
+            metadata: metadata ?? Prisma.JsonNull,
             tenantId,
             ip,
             userAgent: ua

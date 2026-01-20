@@ -1,6 +1,8 @@
 import { prisma } from "database";
 import Link from "next/link";
 
+export const dynamic = 'force-dynamic';
+
 export default async function TenantsPage() {
     const tenants = await prisma.tenant.findMany({
         include: { domains: true }

@@ -1,9 +1,7 @@
-import { exec } from 'child_process';
-import util from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 
-const execAsync = util.promisify(exec);
+// const execAsync = util.promisify(exec);
 
 // Mock directory for configs
 const NGINX_CONF_DIR = process.env.NGINX_CONF_DIR || '/tmp/vantus-nginx/conf.d';
@@ -48,6 +46,6 @@ export async function deployConfig(slug: string, configContent: string): Promise
   redisStore.set(`host:${slug}.vantus.systems`, `tenant:${slug}`);
 }
 
-export async function getDeploymentHistory(tenantId: string) {
+export async function getDeploymentHistory() {
     return [];
 }

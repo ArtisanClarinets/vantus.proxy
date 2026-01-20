@@ -1,6 +1,7 @@
 import { prisma } from "database";
 import { redirect } from "next/navigation";
 import { requireRole, logAudit } from "@/lib/actions";
+export const dynamic = 'force-dynamic';
 
 export default async function CreateTenantPage() {
     await requireRole(['OWNER', 'ADMIN']);

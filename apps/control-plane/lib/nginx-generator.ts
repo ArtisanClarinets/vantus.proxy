@@ -1,5 +1,6 @@
 import { Tenant, Domain, EdgePolicy, UpstreamPool } from '@prisma/client';
 import { z } from 'zod';
+import net from 'node:net';
 
 type TenantWithRelations = Tenant & {
   domains: Domain[];
@@ -7,10 +8,15 @@ type TenantWithRelations = Tenant & {
   edgePolicies: EdgePolicy[];
 };
 
+type RateLimit = { rps: number; burst: number };
+type Target = { host: string; port: number; weight?: number };
+
 // --- Validation Schemas ---
 const SlugSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/, "Invalid slug format");
 const DomainSchema = z.string().regex(/^[a-zA-Z0-9.-]+$/, "Invalid domain format");
-const IpSchema = z.string().ip({ version: "v4" }).or(z.string().ip({ version: "v6" })); // Can extend for CIDR if needed
+const IpSchema = z.string().refine((val) => net.isIP(val) !== 0, {
+  message: "Invalid IP address",
+});
 
 export function generateNginxConfig(tenant: TenantWithRelations): string {
   // 1. Strict Validation
@@ -35,10 +41,10 @@ export function generateNginxConfig(tenant: TenantWithRelations): string {
 
   // 2. Policy & Defaults
   const policy = tenant.edgePolicies[0] || {};
-  const rateLimit = (policy.rateLimit as any) || { rps: 10, burst: 20 };
-  const headers = (policy.headers as any) || {};
-  const cors = (policy.cors as any);
-  const ipAllowlist = (policy.ipAllowlist as any); // Expecting array of strings or null
+  const rateLimit = (policy.rateLimit as unknown as RateLimit) || { rps: 10, burst: 20 };
+  const headers = (policy.headers as Record<string, string>) || {};
+  // const cors = (policy.cors as any); // Unused
+  const ipAllowlist = (policy.ipAllowlist as string[] | null); // Expecting array of strings or null
 
   // IP Validation
   const validAllowList: string[] = [];
@@ -67,7 +73,7 @@ export function generateNginxConfig(tenant: TenantWithRelations): string {
 
   // Construct upstream block
   let upstreamBlock = `upstream ${upstreamName} {\n`;
-  const targets = pool.targets as any[]; // [{host, port, weight}]
+  const targets = pool.targets as unknown as Target[]; // [{host, port, weight}]
   if (Array.isArray(targets)) {
       for (const t of targets) {
           // Validate host/port?
@@ -83,12 +89,14 @@ export function generateNginxConfig(tenant: TenantWithRelations): string {
   let serverBlock = `server {\n    listen 80;\n    server_name ${validDomains.join(' ')};\n\n`;
 
   // Headers
-  for (const [k, v] of Object.entries(headers)) {
-      // Validate Header Key/Value to prevent injection
-      if (!/^[a-zA-Z0-9-]+$/.test(k)) continue;
-      // Value might contain spaces, but no newlines
-      const safeV = String(v).replace(/[\r\n]/g, '');
-      serverBlock += `    add_header ${k} "${safeV}" always;\n`;
+  if (headers && typeof headers === 'object') {
+    for (const [k, v] of Object.entries(headers)) {
+        // Validate Header Key/Value to prevent injection
+        if (!/^[a-zA-Z0-9-]+$/.test(k)) continue;
+        // Value might contain spaces, but no newlines
+        const safeV = String(v).replace(/[\r\n]/g, '');
+        serverBlock += `    add_header ${k} "${safeV}" always;\n`;
+    }
   }
 
   // IP Access
@@ -102,13 +110,7 @@ export function generateNginxConfig(tenant: TenantWithRelations): string {
   // Location
   serverBlock += `    location / {\n`;
   serverBlock += `        proxy_pass http://${upstreamName};\n`;
-// Assume you have a list of valid domains (validDomains) and the requested host (requestedHost)
-// Find the validated domain to use for the Host header
-let validatedDomain = validDomains.includes(requestedHost) ? requestedHost : validDomains[0]; // fallback to primaryDomain
-
-// ...
-
-serverBlock += `        proxy_set_header Host ${validatedDomain};\n`;
+  serverBlock += `        proxy_set_header Host ${validDomains[0]};\n`;
   serverBlock += `        proxy_set_header X-Tenant-Id "${tenant.id}";\n`;
 
   if (rateLimit) {

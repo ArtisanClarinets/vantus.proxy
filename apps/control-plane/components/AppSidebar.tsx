@@ -13,7 +13,7 @@ import {
   LogOut
 } from 'lucide-react';
 import clsx from 'clsx';
-import { signOut } from 'next-auth/react';
+import { authClient } from '@/lib/auth-client';
 
 const navigation = [
   { name: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard },
@@ -64,7 +64,10 @@ export function AppSidebar() {
       </nav>
       <div className="p-4 border-t border-gray-800">
         <button
-            onClick={() => signOut({ callbackUrl: '/auth/login' })}
+            onClick={async () => {
+                await authClient.signOut();
+                window.location.href = '/auth/login';
+            }}
             className="flex w-full items-center px-2 py-2 text-sm font-medium text-gray-400 rounded-md hover:bg-gray-800 hover:text-white"
         >
             <LogOut className="mr-3 h-5 w-5" />
