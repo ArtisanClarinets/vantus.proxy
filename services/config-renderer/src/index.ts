@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import nunjucks from 'nunjucks';
+import 'dotenv/config'; // Load environment variables
 import { prisma } from 'database';
 import { exec } from 'child_process';
 import util from 'util';

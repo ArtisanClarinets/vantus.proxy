@@ -73,6 +73,7 @@ const main = async () => {
   ];
 
   const dockerPath = path.join(__dirname, '../infra/docker/.env');
+  const rootEnvPath = path.join(__dirname, '../.env');
 
   console.log('\nWriting .env files...');
 
@@ -89,17 +90,19 @@ const main = async () => {
     }
   });
 
-  // Write docker specific env
-  try {
-     const dir = path.dirname(dockerPath);
+  // Write docker specific env to infra/docker/.env AND root .env
+  [dockerPath, rootEnvPath].forEach(p => {
+    try {
+      const dir = path.dirname(p);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      fs.writeFileSync(dockerPath, dockerEnvContent);
-      console.log(`Updated ${dockerPath}`);
-  } catch (e) {
-      console.error(`Failed to write to ${dockerPath}:`, e.message);
-  }
+      fs.writeFileSync(p, dockerEnvContent);
+      console.log(`Updated ${p}`);
+    } catch (e) {
+      console.error(`Failed to write to ${p}:`, e.message);
+    }
+  });
 
   console.log('\nSetup complete!\n');
   console.log('-------------------------------------------------------');

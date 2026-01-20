@@ -11,6 +11,7 @@
   "dependencies": {
     "@fastify/cors": "^9.0.1",
     "database": "0.1.0",
+    "dotenv": "^17.2.3",
     "fastify": "^4.26.1",
     "nunjucks": "^3.2.4",
     "zod": "^3.22.4"

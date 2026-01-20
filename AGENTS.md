@@ -9,15 +9,15 @@ The repository is structured as a monorepo using NPM Workspaces:
 - **`apps/control-plane`**: A Next.js 16 (React 19) application serving as the administrative UI. Uses Tailwind CSS 4 and Better Auth.
 - **`services/config-renderer`**: A Fastify-based backend service responsible for generating and deploying Nginx configurations.
 - **`database/`**: Contains the Prisma schema (`prisma/schema.prisma`), shared Prisma client, and seed scripts.
-- **`infra/`**: Infrastructure-as-code or deployment configurations (e.g., Dockerfiles).
-- **`observability/`**: OpenTelemetry and logging configurations.
+- **`infra/`**: Infrastructure-as-code or deployment configurations (e.g., Dockerfiles, Nginx templates).
+- **`observability/`**: OpenTelemetry, Vector, Loki, and Grafana configurations.
 - **`tests/e2e`**: Playwright end-to-end tests covering the entire system.
-- **`scripts/`**: Utility scripts for environment setup and CI/CD.
+- **`scripts/`**: Utility scripts for environment setup, installation, and CI/CD.
 
 ## 2. Build, Lint, and Test Commands
 
 ### Root Commands
-- **Install dependencies:** `npm install`
+- **Install dependencies:** `npm install` (Also runs environment setup and client generation)
 - **Build all workspaces:** `npm run build`
 - **Lint all workspaces:** `npm run lint`
 - **Run all tests:** `npm run test`
@@ -40,11 +40,24 @@ Execute commands within a specific workspace using the `--workspace` flag:
 
 ---
 
-## 3. Code Style Guidelines
+## 3. Deployment & Orchestration
+
+### Docker Compose
+The primary orchestration method is the root `docker-compose.yml`.
+- **Start Stack:** `docker-compose up -d`
+- **Stop Stack:** `docker-compose down`
+
+### Baremetal Production
+For production deployment on Ubuntu 22.04:
+- Run `scripts/install-ubuntu.sh` to automate the setup of Node.js, Docker, PM2, and application services.
+
+---
+
+## 4. Code Style Guidelines
 
 ### Language & Modernity
 - **TypeScript:** Strict mode is mandatory. Use interfaces for public APIs and types for internal data structures.
-- **Node.js:** Targets version 18 or higher. Use modern ESM syntax.
+- **Node.js:** Targets version 20 (Alpine). Use modern ESM syntax.
 - **React:** Uses React 19 features (e.g., `use` hook, Server Components by default in Next.js).
 
 ### Formatting
@@ -77,32 +90,23 @@ Execute commands within a specific workspace using the `--workspace` flag:
 
 ---
 
-## 4. Database Patterns
+## 5. Database Patterns
 - **Prisma Client:** Always import the client from the `database` package: `import { prisma } from 'database'`.
 - **Migrations:** Modifying the schema requires a migration. Run `npx prisma migrate dev` in the `database` directory.
-- **Seeding:** Use `npm run seed --workspace=database` to populate the DB for development.
+- **Seeding:** Use `npm run seed --workspace=database` to populate the DB. This is automatically attempted during `postinstall`.
 
 ---
 
-## 5. Frontend Guidelines (Next.js & Tailwind)
+## 6. Frontend Guidelines (Next.js & Tailwind)
 - **Components:** Favor Server Components. Use `'use client'` only when state, effects, or browser APIs are needed.
 - **Styling:** Use Tailwind CSS 4. Prefer utility classes over custom CSS. Use `clsx` and `tailwind-merge` for dynamic classes.
 - **Icons:** Use `lucide-react`.
 
 ---
 
-## 6. Development Workflow for Agents
+## 7. Development Workflow for Agents
 1. **Analyze:** Check `package.json` in the relevant workspace for specific dependencies.
 2. **Schema:** If the task involves new data, update `database/prisma/schema.prisma` and run `npm run generate-client`.
 3. **Logic:** Implement changes following the established style (check neighboring files).
 4. **Test:** Add a unit test in a `.test.ts` file co-located with the source code.
 5. **Verify:** Run `npm run lint` and the specific test file before submitting.
-
----
-
-## 7. Tech Stack Reference
-- **Frontend:** Next.js 16, React 19, TanStack Query v5, TanStack Table v8.
-- **Backend:** Fastify v4, Prisma v5.
-- **Authentication:** Better Auth.
-- **Testing:** Vitest, Playwright.
-- **Infrastructure:** Docker, Nginx (rendered via templates).
