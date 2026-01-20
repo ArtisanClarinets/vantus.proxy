@@ -139,7 +139,7 @@ fastify.post('/deploy', async (request, reply) => {
         return { status: 'deployed', hash };
 
     } catch (e) {
-        fastify.log.error('Deployment failed, rolling back', e);
+        fastify.log.error(e, 'Deployment failed, rolling back');
 
         // Rollback
         try {
@@ -153,7 +153,7 @@ fastify.post('/deploy', async (request, reply) => {
 
              await reloadNginx();
         } catch (rollbackError) {
-            fastify.log.error('Rollback failed', rollbackError);
+            fastify.log.error(rollbackError, 'Rollback failed');
         }
 
         await prisma.deploymentHistory.create({

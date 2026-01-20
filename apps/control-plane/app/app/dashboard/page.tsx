@@ -1,9 +1,9 @@
 import { prisma } from "database";
-import { headers } from "next/headers";
+export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-    const headersList = await headers();
-    const userId = headersList.get("x-user-id");
+    // const headersList = await headers();
+    // const userId = headersList.get("x-user-id");
 
     const tenantCount = await prisma.tenant.count();
     const domainCount = await prisma.domain.count();

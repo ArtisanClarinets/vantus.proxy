@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db';
 import { generateNginxConfig } from '@/lib/nginx-generator';
 import { ConfigViewer } from '@/components/ConfigViewer';
 import Link from 'next/link';
-import { DeployButton } from '@/components/DeployButton';
+ import DeployButton from '@/components/DeployButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +24,7 @@ export default async function RenderPreviewPage(props: {
   if (tenantId) {
     const tenant = await prisma.tenant.findUnique({
         where: { id: tenantId },
-        include: { domains: { include: { certificate: true } }, policy: true }
+        include: { domains: true, upstreamPools: true, edgePolicies: true }
     });
 
     if (tenant) {

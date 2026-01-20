@@ -1,5 +1,6 @@
 import { prisma } from "database";
 import { getCurrentUser } from "@/lib/actions";
+export const dynamic = 'force-dynamic';
 
 export default async function TenantDeployments({ params }: { params: Promise<{ tenantId: string }> }) {
     const { tenantId } = await params;

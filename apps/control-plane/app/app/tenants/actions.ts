@@ -28,7 +28,7 @@ export async function createTenant(formData: FormData) {
           slug,
           domains: {
             create: {
-                hostname: `${slug}.vantus.systems`
+                name: `${slug}.vantus.systems`
             }
           }
         }

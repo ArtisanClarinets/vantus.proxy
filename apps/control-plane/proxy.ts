@@ -47,7 +47,7 @@ export async function proxy(request: NextRequest) {
 
         // If we have a tenantId, we could inject it.
         // Also if subdomain is used.
-        const host = request.headers.get('host') || '';
+        // const host = request.headers.get('host') || '';
         // Check if host is a tenant domain (via Redis API if needed).
         // For now, we trust path or header.
 

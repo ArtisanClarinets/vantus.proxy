@@ -17,18 +17,38 @@ async function main() {
   const user = await prisma.user.upsert({
     where: { email },
     update: {
-        password: hashedPassword,
-        role: 'OWNER'
+        // role: 'OWNER' // User has no role in this schema
     },
     create: {
       email,
       name: email.split('@')[0],
-      password: hashedPassword,
-      role: 'OWNER'
+      emailVerified: true,
+      // role: 'OWNER'
     },
   });
 
-  console.log(`User ${user.email} created/updated as OWNER.`);
+  // Create/Update Credential Account
+  const account = await prisma.account.findFirst({
+      where: { userId: user.id, providerId: 'credential' }
+  });
+
+  if (account) {
+      await prisma.account.update({
+          where: { id: account.id },
+          data: { password: hashedPassword }
+      });
+  } else {
+      await prisma.account.create({
+          data: {
+              userId: user.id,
+              accountId: email, // Usually the email for credentials
+              providerId: 'credential',
+              password: hashedPassword,
+          }
+      });
+  }
+
+  console.log(`User ${user.email} created/updated.`);
 }
 
 main()
