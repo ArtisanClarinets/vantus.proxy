@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+/**
+ * Proxy Middleware (formerly middleware.ts)
+ * 
+ * This middleware handles:
+ * 1. Authentication protection for /app routes.
+ * 2. Tenant context injection via headers.
+ * 3. Session validation using Better Auth.
+ * 
+ * @param {NextRequest} request - The incoming Next.js request.
+ * @returns {Promise<NextResponse>} The response or redirect.
+ */
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl;
   const { pathname } = url;
@@ -38,18 +49,13 @@ export async function proxy(request: NextRequest) {
 
         if (!tenantId) {
             // Check URL path for explicit tenant context
+            // Pattern: /app/tenants/:tenantId
             const tenantMatch = pathname.match(/^\/app\/tenants\/([^\/]+)/);
             if (tenantMatch && tenantMatch[1] !== 'create') {
                 tenantId = tenantMatch[1];
                 requestHeaders.set('x-tenant-id', tenantId);
             }
         }
-
-        // If we have a tenantId, we could inject it.
-        // Also if subdomain is used.
-        // const host = request.headers.get('host') || '';
-        // Check if host is a tenant domain (via Redis API if needed).
-        // For now, we trust path or header.
 
         return NextResponse.next({
             request: {
@@ -59,7 +65,6 @@ export async function proxy(request: NextRequest) {
 
     } catch (e) {
         console.error("Auth check failed", e);
-        // Fail open or closed? Closed.
         const loginUrl = new URL('/auth/login', request.url);
         return NextResponse.redirect(loginUrl);
     }
@@ -67,6 +72,8 @@ export async function proxy(request: NextRequest) {
 
   return NextResponse.next();
 }
+
+export default proxy;
 
 export const config = {
   matcher: [

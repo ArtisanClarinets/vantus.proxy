@@ -2,14 +2,16 @@ import { prisma, Role } from '../index';
 import { hash } from 'bcryptjs';
 
 async function main() {
-  const passwordHash = await hash('password123', 10);
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@vantus.systems';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'password123';
+  const passwordHash = await hash(adminPassword, 10);
 
   // Platform owner
   const owner = await prisma.user.upsert({
-    where: { email: 'admin@vantus.systems' },
+    where: { email: adminEmail },
     update: {},
     create: {
-      email: 'admin@vantus.systems',
+      email: adminEmail,
       name: 'Platform Owner',
       emailVerified: true,
     },

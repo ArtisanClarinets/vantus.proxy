@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: vantus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Generate Database Client
+      run: npm run generate-client
+      env:
+        DATABASE_URL: postgres://user:password@localhost:5432/vantus
+
+    - name: Run Tests
+      run: npm test
+      env:
+        DATABASE_URL: postgres://user:password@localhost:5432/vantus
+        BETTER_AUTH_SECRET: test-secret
+        NEXT_PUBLIC_BETTER_AUTH_URL: http://localhost:3000
+
+    - name: Build
+      run: npm run build
+      env:
+        DATABASE_URL: postgres://user:password@localhost:5432/vantus
+        BETTER_AUTH_SECRET: build-secret

@@ -11,17 +11,17 @@ export default function DeployButton({ tenantId }: { tenantId: string }) {
         setLoading(true);
         try {
             // 1. Render Config
-            const renderRes = await fetch(`${process.env.NEXT_PUBLIC_CONFIG_RENDERER_URL || 'http://localhost:3001'}/render`, {
+            const renderRes = await fetch(`/api/config-renderer/render`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tenantId }) // Filter by tenant if supported, else renders all (current simple implementation renders all)
+                body: JSON.stringify({ tenantId })
             });
 
             if (!renderRes.ok) throw new Error("Render failed");
             const { files, hash } = await renderRes.json();
 
             // 2. Deploy
-            const deployRes = await fetch(`${process.env.NEXT_PUBLIC_CONFIG_RENDERER_URL || 'http://localhost:3001'}/deploy`, {
+            const deployRes = await fetch(`/api/config-renderer/deploy`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ files, hash })

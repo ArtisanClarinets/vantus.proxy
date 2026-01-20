@@ -36,6 +36,9 @@ const main = async () => {
   const redisUrl = await ask('REDIS_URL', 'redis://localhost:6379');
   const configRendererSecret = await ask('CONFIG_RENDERER_SECRET', generateSecret());
 
+  const adminEmail = await ask('ADMIN_EMAIL', 'admin@vantus.systems');
+  const adminPassword = await ask('ADMIN_PASSWORD', 'password123');
+
   const envContent = [
     `MYSQL_ROOT_PASSWORD="${mysqlRootPassword}"`,
     `MYSQL_DATABASE="${mysqlDatabase}"`,
@@ -44,7 +47,9 @@ const main = async () => {
     `BETTER_AUTH_URL="${betterAuthUrl}"`,
     `REDIS_URL="${redisUrl}"`,
     `CONFIG_RENDERER_SECRET="${configRendererSecret}"`,
-    `NEXT_PUBLIC_APP_URL="${betterAuthUrl}"`
+    `NEXT_PUBLIC_APP_URL="${betterAuthUrl}"`,
+    `ADMIN_EMAIL="${adminEmail}"`,
+    `ADMIN_PASSWORD="${adminPassword}"`
   ].join('\n');
 
   // Docker environment needs internal hostnames
@@ -55,7 +60,9 @@ const main = async () => {
     `BETTER_AUTH_SECRET=${betterAuthSecret}`,
     `BETTER_AUTH_URL=${betterAuthUrl}`,
     `REDIS_URL=redis://redis:6379`,
-    `CONFIG_RENDERER_SECRET=${configRendererSecret}`
+    `CONFIG_RENDERER_SECRET=${configRendererSecret}`,
+    `ADMIN_EMAIL=${adminEmail}`,
+    `ADMIN_PASSWORD=${adminPassword}`
   ].join('\n');
 
   // Paths to write .env files
@@ -95,6 +102,14 @@ const main = async () => {
   }
 
   console.log('\nSetup complete!\n');
+  console.log('-------------------------------------------------------');
+  console.log('IMPORTANT: Default Credentials (valid after seeding)');
+  console.log(`Username: ${adminEmail}`);
+  console.log(`Password: ${adminPassword}`);
+  console.log('-------------------------------------------------------');
+  console.log('Note: Run "npm run seed --workspace=database" if the automatic seeding fails.');
+  console.log('-------------------------------------------------------\n');
+
   rl.close();
 };
 

@@ -96,6 +96,7 @@ model Tenant {
   deployments       DeploymentHistory[]
   memberships       Membership[]
   auditLogs         AuditLog[]
+  metrics           Metric[]
 
   @@map("tenant")
 }
@@ -195,4 +196,18 @@ model CertificateEvent {
   domain    Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
 
   @@map("certificate_event")
+}
+
+model Metric {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  name      String
+  value     Float
+  unit      String?
+  labels    Json?
+  timestamp DateTime @default(now())
+
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@map("metric")
 }

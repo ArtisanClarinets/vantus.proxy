@@ -12,4 +12,6 @@ const sdk = new NodeSDK({
   }),
 });
 
-sdk.start();
+export function init() {
+    sdk.start();
+}

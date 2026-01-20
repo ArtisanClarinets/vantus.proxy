@@ -8,8 +8,9 @@
     "apps/*"
   ],
   "scripts": {
-    "postinstall": "node scripts/setup-env.js && npm run generate-client",
+    "postinstall": "node scripts/setup-env.js && npm run generate-client && node scripts/try-seed.js",
     "generate-client": "npm run generate --workspace=database",
+    "start": "tsx scripts/orchestrator.ts",
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "dev": "npm run dev --workspaces --if-present",
@@ -18,7 +19,8 @@
   "devDependencies": {
     "typescript": "^5.0.0",
     "vite": "^7.3.1",
-    "vitest": "^4.0.17"
+    "vitest": "^4.0.17",
+    "@playwright/test": "^1.41.2"
   },
   "engines": {
     "node": ">=18"

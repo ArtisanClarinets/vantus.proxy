@@ -175,7 +175,9 @@ fastify.get('/health', async () => {
 
 const start = async () => {
     try {
-        await fastify.listen({ port: 3001, host: '0.0.0.0' });
+        const PORT = parseInt(process.env.PORT || '3001', 10);
+        await fastify.listen({ port: PORT, host: '0.0.0.0' });
+        console.log(`Config Renderer running on port ${PORT}`);
     } catch (err) {
         fastify.log.error(err);
         process.exit(1);

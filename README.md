@@ -4,19 +4,22 @@ Enterprise-grade Nginx Control Plane & Proxy with multi-tenancy, RBAC, and obser
 
 ## Quick Start
 
-1.  **Prerequisites**: Docker & Docker Compose.
+1.  **Install Dependencies & Setup Environment**:
+    Run the following command in the root directory. This will install dependencies and interactively configure your environment (creating `.env` files).
+    ```bash
+    npm install
+    ```
 
 2.  **Start the Platform**:
     ```bash
     cd infra/docker
-    cp .env.example .env
     docker compose up --build
     ```
 
 3.  **Access the Dashboard**:
     Open [http://app.localtest.me:3000](http://app.localtest.me:3000).
-    *   **Email**: `admin@vantus.systems`
-    *   **Password**: `password123`
+    *   **Email**: `admin@vantus.systems` (Default, or as configured during setup)
+    *   **Password**: `password123` (Default, or as configured during setup)
 
 ## Architecture
 

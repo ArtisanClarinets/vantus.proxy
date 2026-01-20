@@ -1,74 +1,65 @@
-import { Tenant, Domain, EdgePolicy, UpstreamPool } from '@prisma/client';
+import { Tenant, Domain, UpstreamPool, EdgePolicy } from '@prisma/client';
 import { z } from 'zod';
-import net from 'node:net';
 
-type TenantWithRelations = Tenant & {
-  domains: Domain[];
-  upstreamPools: UpstreamPool[];
-  edgePolicies: EdgePolicy[];
-};
+// Zod Schemas for validation
+const IpSchema = z.string().ip();
+const DomainSchema = z.string().regex(/^[a-z0-9.-]+$/);
 
-type RateLimit = { rps: number; burst: number };
-type Target = { host: string; port: number; weight?: number };
+type Target = {
+    host: string;
+    port: number;
+    weight?: number;
+}
 
-// --- Validation Schemas ---
-const SlugSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/, "Invalid slug format");
-const DomainSchema = z.string().regex(/^[a-zA-Z0-9.-]+$/, "Invalid domain format");
-const IpSchema = z.string().refine((val) => net.isIP(val) !== 0, {
-  message: "Invalid IP address",
-});
+type ExtendedTenant = Tenant & {
+    domains: Domain[];
+    upstreamPools: UpstreamPool[];
+    edgePolicies: EdgePolicy[];
+}
 
-export function generateNginxConfig(tenant: TenantWithRelations): string {
-  // 1. Strict Validation
-  const slugResult = SlugSchema.safeParse(tenant.slug);
-  if (!slugResult.success) {
-      throw new Error(`Security Error: Invalid tenant slug '${tenant.slug}' - ${slugResult.error.message}`);
+/**
+ * Generates an Nginx configuration string for a given tenant.
+ * 
+ * @param {ExtendedTenant} tenant - The tenant object with relations loaded.
+ * @returns {string} The generated Nginx configuration.
+ * @throws {Error} If security validation fails (e.g. invalid slug, invalid IPs).
+ */
+export function generateNginxConfig(tenant: ExtendedTenant): string {
+  // 1. Security & Validation
+  if (!/^[a-z0-9-]+$/.test(tenant.slug)) {
+      throw new Error(`Security Error: Invalid tenant slug: ${tenant.slug}`);
   }
 
-  if (!tenant.domains.length) {
-      return `# No domains configured for tenant ${tenant.slug}`;
-  }
+  const validDomains = tenant.domains
+      .map(d => d.name)
+      .filter(name => DomainSchema.safeParse(name).success);
+  
+  if (validDomains.length === 0) return "# No valid domains";
 
-  const validDomains: string[] = [];
-  for (const d of tenant.domains) {
-      const res = DomainSchema.safeParse(d.name);
-      if (!res.success) throw new Error(`Security Error: Invalid domain '${d.name}'`);
-      validDomains.push(d.name);
-  }
+  const pool = tenant.upstreamPools[0]; // Multi-pool support later
+  if (!pool) return "# No upstream pool configured";
 
-  const pool = tenant.upstreamPools[0];
-  if (!pool) return `# No upstream pool for tenant ${tenant.slug}`;
-
-  // 2. Policy & Defaults
-  const policy = tenant.edgePolicies[0] || {};
-  const rateLimit = (policy.rateLimit as unknown as RateLimit) || { rps: 10, burst: 20 };
-  const headers = (policy.headers as Record<string, string>) || {};
-  // const cors = (policy.cors as any); // Unused
-  const ipAllowlist = (policy.ipAllowlist as string[] | null); // Expecting array of strings or null
-
-  // IP Validation
-  const validAllowList: string[] = [];
-  if (Array.isArray(ipAllowlist)) {
-      for (const ip of ipAllowlist) {
-          // Allow CIDR too? Zod IP doesn't support CIDR directly easily without regex,
-          // but let's assume simple IPs for now or use a CIDR regex.
-          // Simple regex for CIDR or IP:
+  const policy = tenant.edgePolicies[0]; // Default policy
+  
+  // 2. Access Control Lists (ACLs)
+  let allowListBlock = '';
+  if (policy && Array.isArray(policy.ipAllowlist) && policy.ipAllowlist.length > 0) {
+      const allowList = policy.ipAllowlist as string[];
+      const validAllowList = [];
+      for (const ip of allowList) {
           if (/^([0-9]{1,3}\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$/.test(ip)) {
              validAllowList.push(ip);
+             allowListBlock += `    allow ${ip};\n`;
           } else {
              throw new Error(`Security Error: Invalid IP/CIDR in allowlist: ${ip}`);
           }
       }
+      if (validAllowList.length > 0) {
+          allowListBlock += `    deny all;\n`;
+      }
   }
 
-  // 3. Template Construction (Manual Nunjucks-like for now, or ensure caller uses Nunjucks)
-  // The User wanted "Nunjucks templates" to be used.
-  // In `services/config-renderer`, we DO use Nunjucks templates.
-  // This file `nginx-generator.ts` in `apps/control-plane` might be legacy or used for PREVIEW.
-  // If used for preview, it should mimic the renderer.
-  // Ideally, the control plane should CALL the renderer for preview too.
-  // But for now, let's make this safe.
-
+  // 3. Template Construction
   const upstreamName = `upstream_${tenant.slug}_${pool.name}`;
 
   // Construct upstream block
@@ -77,9 +68,7 @@ export function generateNginxConfig(tenant: TenantWithRelations): string {
   if (Array.isArray(targets)) {
       for (const t of targets) {
           // Validate host/port?
-          if (!DomainSchema.safeParse(t.host).success && !IpSchema.safeParse(t.host).success) {
-               // Host might be internal docker name, which follows domain rules mostly
-          }
+          // Host might be internal docker name, which follows domain rules mostly
           upstreamBlock += `    server ${t.host}:${t.port} weight=${t.weight || 1};\n`;
       }
   }
@@ -89,40 +78,26 @@ export function generateNginxConfig(tenant: TenantWithRelations): string {
   let serverBlock = `server {\n    listen 80;\n    server_name ${validDomains.join(' ')};\n\n`;
 
   // Headers
+  const headers = policy?.headers as Record<string, string> | null;
   if (headers && typeof headers === 'object') {
-    for (const [k, v] of Object.entries(headers)) {
-        // Validate Header Key/Value to prevent injection
-        if (!/^[a-zA-Z0-9-]+$/.test(k)) continue;
-        // Value might contain spaces, but no newlines
-        const safeV = String(v).replace(/[\r\n]/g, '');
-        serverBlock += `    add_header ${k} "${safeV}" always;\n`;
-    }
-  }
-
-  // IP Access
-  if (validAllowList.length > 0) {
-      for (const ip of validAllowList) {
-          serverBlock += `    allow ${ip};\n`;
+      for (const [key, value] of Object.entries(headers)) {
+          // Sanitize header keys/values to prevent injection
+          if (/^[a-zA-Z0-9-]+$/.test(key) && /^[a-zA-Z0-9- :;.,]+$/.test(value)) {
+               serverBlock += `    add_header ${key} "${value}" always;\n`;
+          }
       }
-      serverBlock += `    deny all;\n`;
   }
 
-  // Location
-  serverBlock += `    location / {\n`;
+  // Proxy Pass
+  serverBlock += `\n    location / {\n`;
+  serverBlock += allowListBlock;
   serverBlock += `        proxy_pass http://${upstreamName};\n`;
-  serverBlock += `        proxy_set_header Host ${validDomains[0]};\n`;
+  serverBlock += `        proxy_set_header Host $host;\n`;
+  serverBlock += `        proxy_set_header X-Real-IP $remote_addr;\n`;
   serverBlock += `        proxy_set_header X-Tenant-Id "${tenant.id}";\n`;
+  serverBlock += `    }\n`;
 
-  if (rateLimit) {
-      // rate limit logic usually requires a zone definition in http block,
-      // which we can't easily inject from here without global config knowledge.
-      // But we can add the directive assuming the zone exists (created by global config or renderer).
-      // However, the renderer manages the file structure.
-      // This function is likely just for "Preview".
-      serverBlock += `        # Rate limit burst=${rateLimit.burst} rps=${rateLimit.rps}\n`;
-  }
+  serverBlock += `}\n`;
 
-  serverBlock += `    }\n}\n`;
-
-  return upstreamBlock + "\n" + serverBlock;
+  return `${upstreamBlock}\n${serverBlock}`;
 }
