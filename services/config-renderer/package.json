@@ -9,7 +9,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "database": "workspace:*",
+    "database": "0.1.0",
     "nunjucks": "^3.2.4",
     "fastify": "^4.26.1",
     "@fastify/cors": "^9.0.1",

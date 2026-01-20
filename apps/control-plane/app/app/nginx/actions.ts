@@ -3,11 +3,12 @@ import { deployConfig } from '@/lib/proxy-control';
 import { prisma } from '@/lib/db';
 import { generateNginxConfig } from '@/lib/nginx-generator';
 import { revalidatePath } from 'next/cache';
+import crypto from 'crypto';
 
 export async function deployTenantConfig(tenantId: string) {
     const tenant = await prisma.tenant.findUnique({
         where: { id: tenantId },
-        include: { domains: { include: { certificate: true } }, policy: true }
+        include: { domains: true, upstreamPools: true, edgePolicies: true }
     });
     if (!tenant) throw new Error("Tenant not found");
 
@@ -16,13 +17,15 @@ export async function deployTenantConfig(tenantId: string) {
     // Validate & Deploy
     await deployConfig(tenant.slug, config);
 
+    const hash = crypto.createHash('sha256').update(config).digest('hex');
+
     // Record Deployment
-    await prisma.deployment.create({
+    await prisma.deploymentHistory.create({
         data: {
             tenantId: tenant.id,
-            configSnapshot: config,
+            hash: hash,
             status: 'SUCCESS',
-            deployedBy: 'SYSTEM'
+            logs: 'Config Snapshot: ' + config.substring(0, 1000)
         }
     });
 

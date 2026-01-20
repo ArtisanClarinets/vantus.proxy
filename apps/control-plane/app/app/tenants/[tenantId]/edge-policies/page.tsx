@@ -1,4 +1,5 @@
 import { prisma } from "database";
+export const dynamic = 'force-dynamic';
 
 export default async function TenantEdgePolicies({ params }: { params: Promise<{ tenantId: string }> }) {
     const { tenantId } = await params;
