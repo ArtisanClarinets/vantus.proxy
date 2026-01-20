@@ -133,6 +133,7 @@ model Tenant {
   auditLogs         AuditLog[]
   apiKeys           ApiKey[]
   invoices          Invoice[]
+  metrics           Metric[]
 
   @@map("tenant")
 }
@@ -335,4 +336,16 @@ model Incident {
   updatedAt DateTime @updatedAt
 
   @@map("incident")
+model Metric {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  name      String
+  value     Float
+  unit      String?
+  labels    Json?
+  timestamp DateTime @default(now())
+
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@map("metric")
 }

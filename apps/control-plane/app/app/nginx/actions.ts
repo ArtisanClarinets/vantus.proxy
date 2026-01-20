@@ -3,6 +3,7 @@ import { deployConfig } from '@/lib/proxy-control';
 import { prisma } from '@/lib/db';
 import { generateNginxConfig } from '@/lib/nginx-generator';
 import { revalidatePath } from 'next/cache';
+import { logAudit } from '@/lib/actions';
 import crypto from 'crypto';
 
 export async function deployTenantConfig(tenantId: string) {
@@ -28,6 +29,8 @@ export async function deployTenantConfig(tenantId: string) {
             logs: 'Config Snapshot: ' + config.substring(0, 1000)
         }
     });
+
+    await logAudit('DEPLOY_CONFIG', { hash, slug: tenant.slug }, tenant.id);
 
     revalidatePath(`/app/nginx/render-preview`);
     return { success: true };

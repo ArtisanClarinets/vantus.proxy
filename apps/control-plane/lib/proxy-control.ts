@@ -1,16 +1,17 @@
 import fs from 'fs/promises';
 import path from 'path';
+import Redis from 'ioredis';
 
 // const execAsync = util.promisify(exec);
 
 // Mock directory for configs
 const NGINX_CONF_DIR = process.env.NGINX_CONF_DIR || '/tmp/vantus-nginx/conf.d';
 
-// Redis Simulation (In-Memory for this demo, would be `ioredis` in prod)
-// We use a global variable to simulate persistence across server actions in dev mode (mostly)
-const globalForRedis = global as unknown as { redisStore: Map<string, string> };
-const redisStore = globalForRedis.redisStore || new Map<string, string>();
-if (process.env.NODE_ENV !== 'production') globalForRedis.redisStore = redisStore;
+// Real Redis Integration
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+const globalForRedis = global as unknown as { redis: Redis };
+export const redis = globalForRedis.redis || new Redis(REDIS_URL);
+if (process.env.NODE_ENV !== 'production') globalForRedis.redis = redis;
 
 export async function validateConfig(configContent: string): Promise<{ valid: boolean; error?: string }> {
   if (configContent.includes('error')) {
@@ -42,8 +43,8 @@ export async function deployConfig(slug: string, configContent: string): Promise
   // Extract Hosts from config or pass them in.
   // For now we assume the slug is the key or we map the domain.
   // In a real scenario, we'd map `test-tenant.vantus.systems` -> `tenant_id`
-  console.log(`[Mock Redis] SET host:${slug}.vantus.systems -> tenant:${slug}`);
-  redisStore.set(`host:${slug}.vantus.systems`, `tenant:${slug}`);
+  console.log(`[Redis] SET host:${slug}.vantus.systems -> tenant:${slug}`);
+  await redis.set(`host:${slug}.vantus.systems`, `tenant:${slug}`);
 }
 
 export async function getDeploymentHistory() {

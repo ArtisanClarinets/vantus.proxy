@@ -1,70 +1,126 @@
-# Vantus Proxy
+# Vantus Proxy Platform
 
-Enterprise-grade Nginx Control Plane & Proxy with multi-tenancy, RBAC, and observability.
+**Enterprise-grade Nginx Control Plane & Proxy with multi-tenancy, RBAC, and observability.**
 
-## Quick Start
+The Vantus Proxy Platform is a modern, unified solution for managing Nginx-based edge traffic. It combines a user-friendly Control Plane (Next.js) with a robust Config Renderer (Fastify) to automate the deployment of secure, high-performance Nginx configurations.
 
-1.  **Prerequisites**: Docker & Docker Compose.
+---
 
-2.  **Start the Platform**:
-    ```bash
-    cd infra/docker
-    cp .env.example .env
-    docker compose up --build
-    ```
+## 🚀 Key Features
 
-3.  **Access the Dashboard**:
-    Open [http://app.localtest.me:3000](http://app.localtest.me:3000).
-    *   **Email**: `admin@vantus.systems`
-    *   **Password**: `password123`
+*   **Unified Control Plane:** A modern dashboard to manage tenants, domains, and upstreams.
+*   **Safe Config Deployment:** Validates Nginx configurations before deployment to prevent outages.
+*   **Multi-Tenancy:** Strict isolation of tenant configurations and resources.
+*   **Observability Stack:** Integrated Logs (Loki), Metrics (VictoriaMetrics), and Tracing (OpenTelemetry).
+*   **Role-Based Access Control:** Granular permissions for Owners, Admins, Operators, and Viewers.
+*   **Automated TLS:** Integration with Certbot for automatic SSL certificate management.
 
-## Architecture
+---
 
-*   **Control Plane** (`apps/control-plane`): Next.js 16 application for management.
-*   **Config Renderer** (`services/config-renderer`): Generates and deploys Nginx configurations safely.
-*   **Edge Nginx**: The data plane proxying traffic to upstreams.
-*   **Observability**: Vector -> Loki (Logs), OpenTelemetry -> VictoriaMetrics (Metrics).
+## 🏗️ Architecture
 
-## Services
+The platform consists of four main components orchestrated via Docker:
 
-| Service | URL (Host) | Description |
+1.  **Control Plane (`apps/control-plane`):**
+    *   Next.js 16 (App Router) & React 19 application.
+    *   Manages state in MariaDB via Prisma.
+    *   Handles authentication and user management.
+
+2.  **Config Renderer (`services/config-renderer`):**
+    *   Fastify-based service that watches for configuration changes.
+    *   Generates Nginx config files from Nunjucks templates.
+    *   Validates and reloads the Edge Nginx instance.
+
+3.  **Edge Nginx:**
+    *   The high-performance data plane proxying actual traffic.
+    *   Runs standard Nginx with dynamically updated configurations.
+
+4.  **Observability Layer:**
+    *   **Vector:** Collects logs and metrics.
+    *   **Loki & VictoriaMetrics:** Storage backends.
+    *   **Grafana:** Visualization dashboards.
+
+---
+
+## 🛠️ Getting Started
+
+### Prerequisites
+
+*   **Node.js 20+**
+*   **Docker & Docker Compose**
+
+### 1. Installation (Local Development)
+
+Clone the repository and install dependencies. This will prompt you to configure your environment variables (or use defaults).
+
+```bash
+npm install
+```
+
+Start the entire platform stack using Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+### 2. Accessing the Platform
+
+Once the stack is running, access the following services:
+
+| Service | URL | Default Credentials |
 | :--- | :--- | :--- |
-| **Control Plane** | `http://app.localtest.me:3000` | Management Dashboard |
-| **Grafana** | `http://localhost:3002` | Metrics & Logs Dashboards (`admin`/`admin`) |
-| **Tenant 1** | `http://tenant1.localtest.me` | Demo Tenant 1 (Proxied) |
-| **Tenant 2** | `http://tenant2.localtest.me` | Demo Tenant 2 (Proxied) |
-| **VictoriaMetrics** | `http://localhost:8428` | Prometheus-compatible metrics |
-| **Loki** | `http://localhost:3100` | Log aggregation |
+| **Control Plane** | `http://localhost:3000` | `admin@vantus.systems` / `password123` |
+| **Grafana** | `http://localhost:3002` | `admin` / `admin` |
+| **Edge Proxy** | `http://localhost` | N/A |
 
-## Development
+### 3. Production Installation (Baremetal)
 
-### Commands
+For production deployments on a fresh Ubuntu 22.04 server, use the provided installer script. This handles all dependencies, including Node.js, Docker, and PM2.
 
-*   `pnpm install`: Install dependencies.
-*   `pnpm test`: Run unit tests.
-*   `pnpm e2e`: Run Playwright E2E tests.
-*   `pnpm --filter database generate`: Generate Prisma client.
+```bash
+chmod +x scripts/install-ubuntu.sh
+./scripts/install-ubuntu.sh
+```
 
-### Directory Structure
+---
+
+## 💻 Development
+
+### Project Structure
 
 ```
 /vantus-proxy
-  /apps
-    /control-plane       # Next.js App
-  /services
-    /config-renderer     # Config Generator Service
-  /infra
-    /docker              # Docker Compose
-    /nginx               # Templates
-  /observability         # OTel, Vector, Grafana configs
-  /database              # Prisma Schema & Seeds
+├── apps/
+│   └── control-plane       # Next.js Management UI
+├── services/
+│   └── config-renderer     # Nginx Config Generator
+├── database/               # Prisma Schema & Seeds
+├── infra/
+│   ├── docker/             # Docker configurations
+│   ├── nginx/              # Templates & Snippets
+│   └── observability/      # Grafana, Loki, Vector configs
+├── scripts/                # Setup & Install scripts
+└── tests/                  # E2E Tests
 ```
 
-## Known Limitations
+### Common Commands
 
-*   **Migrations**: In this demo environment, migrations are not committed as SQL files because a running DB was not available during generation. The system relies on `prisma db push` or manual migration generation on first run.
-*   **Certificates**: Self-signed certificates or Let's Encrypt staging should be used for `*.localtest.me`.
+*   `npm install`: Install dependencies and setup environment.
+*   `npm run build`: Build all workspaces.
+*   `npm run test`: Run unit tests across all workspaces.
+*   `npm run generate-client`: Regenerate Prisma Client (after schema changes).
 
-## License
+---
 
-Private.
+## 🔒 Security
+
+*   **Default User:** The installer creates a default admin user (`admin@vantus.systems`). **Change this password immediately** upon first login.
+*   **Secrets:** All sensitive configuration is managed via `.env` files. Ensure these are not committed to version control.
+*   **Isolation:** Tenants are strictly isolated at the configuration level to prevent cross-tenant interference.
+
+---
+
+## 📄 License
+
+**Private & Confidential.**
+Copyright © 2026 Vantus Systems. All Rights Reserved.

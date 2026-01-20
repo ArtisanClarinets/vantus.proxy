@@ -1,6 +1,7 @@
 'use server';
 import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { logAudit } from '@/lib/actions';
 
 export async function createTenant(formData: FormData) {
   const name = formData.get('name') as string;
@@ -22,7 +23,7 @@ export async function createTenant(formData: FormData) {
   }
 
   try {
-      await prisma.tenant.create({
+      const tenant = await prisma.tenant.create({
         data: {
           name,
           slug,
@@ -33,6 +34,7 @@ export async function createTenant(formData: FormData) {
           }
         }
       });
+      await logAudit('CREATE_TENANT', { name, slug }, tenant.id);
       revalidatePath('/app/tenants');
       revalidatePath('/app/nginx/render-preview');
   } catch (e) {
