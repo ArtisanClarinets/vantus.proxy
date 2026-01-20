@@ -1,0 +1,46 @@
+FROM nginx:1.25-alpine
+
+# Install ModSecurity dependencies
+RUN apk add --no-cache \
+    git \
+    build-base \
+    automake \
+    autoconf \
+    libtool \
+    pcre-dev \
+    linux-headers \
+    libxml2-dev \
+    yajl-dev \
+    geoip-dev \
+    curl-dev \
+    lmdb-dev \
+    libmaxminddb-dev
+
+# Build ModSecurity
+WORKDIR /opt
+RUN git clone --depth 1 -b v3/master --single-branch https://github.com/SpiderLabs/ModSecurity
+WORKDIR /opt/ModSecurity
+RUN git submodule init && git submodule update
+RUN ./build.sh && ./configure && make && make install
+
+# Clone ModSecurity-nginx connector
+WORKDIR /opt
+RUN git clone --depth 1 https://github.com/SpiderLabs/ModSecurity-nginx.git
+
+# Rebuild Nginx with ModSecurity module
+# Note: This is a simplified "rebuild" using the same version as the base image.
+# In a real pipeline, we'd grab the source and compile from scratch.
+# For Alpine, we can try to use dynamic modules if supported, or full compile.
+# Given time constraints, let's use a prebuilt modsecurity image if available or compile basic.
+# Actually, compiling Nginx from source on Alpine takes a while.
+# Let's switch to a popular pre-built image or just stub the module loading for the "Wiring" phase
+# if the compilation is too heavy.
+# HOWEVER, the user asked for "Production Ready".
+# Let's use `owasp/modsecurity-crs:nginx-alpine` which is the industry standard.
+
+FROM owasp/modsecurity-crs:nginx-alpine
+# This image comes with ModSecurity and CRS (Core Rule Set) pre-installed.
+# We just need to override configuration.
+
+COPY infra/nginx/modsec /etc/nginx/modsec
+# We will mount conf.d at runtime as per docker-compose

@@ -136,10 +136,16 @@ services:
         condition: service_started
 
   edge-nginx:
-    image: nginx:alpine
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.nginx
     volumes:
       - nginx_conf:/etc/nginx/conf.d
       - nginx_run:/var/run # Share PID file
+      - ../nginx/modsec:/etc/nginx/modsec
+    environment:
+      - MODSEC_AUDIT_LOG_FORMAT=JSON
+      - PARANOIA=1
     ports:
       - "80:80"
       - "443:443"
