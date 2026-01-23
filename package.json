@@ -1,17 +1,13 @@
 {
-  "name": "vantus-proxy-monorepo",
-  "version": "0.0.0",
-  "private": true,
+  "name": "vantus.proxy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "test": "pnpm -r test",
-    "build": "pnpm -r build",
-    "dev": "pnpm -r dev",
-    "lint": "pnpm -r lint"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "devDependencies": {
-    "typescript": "^5.0.0"
-  },
-  "engines": {
-    "node": ">=18"
-  }
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.28.1"
 }
