@@ -20,6 +20,9 @@ type ExtendedTenant = Tenant & {
 /**
  * Generates an Nginx configuration string for a given tenant.
  * 
+ * @deprecated This logic has been moved to services/config-renderer.
+ * Please use the /render endpoint of that service instead.
+ *
  * @param {ExtendedTenant} tenant - The tenant object with relations loaded.
  * @returns {string} The generated Nginx configuration.
  * @throws {Error} If security validation fails (e.g. invalid slug, invalid IPs).

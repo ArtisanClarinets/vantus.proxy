@@ -8,7 +8,13 @@ const rl = readline.createInterface({
   output: process.stdout
 });
 
+const useDefaults = !process.stdin.isTTY || process.argv.includes('--defaults') || process.env.CI;
+
 const ask = (question, defaultValue) => {
+  if (useDefaults) {
+      console.log(`${question} (${defaultValue}): ${defaultValue} (Using default)`);
+      return Promise.resolve(defaultValue);
+  }
   return new Promise((resolve) => {
     rl.question(`${question} (${defaultValue}): `, (answer) => {
       resolve(answer.trim() || defaultValue);
@@ -22,7 +28,11 @@ const generateSecret = () => {
 
 const main = async () => {
   console.log('\n--- Vantus Proxy Setup ---\n');
-  console.log('Please provide the following environment variables. Press Enter to use the default value.\n');
+  if (useDefaults) {
+      console.log('Non-interactive mode detected. Using defaults.\n');
+  } else {
+      console.log('Please provide the following environment variables. Press Enter to use the default value.\n');
+  }
 
   const mysqlRootPassword = await ask('MYSQL_ROOT_PASSWORD', 'password123');
   const mysqlDatabase = await ask('MYSQL_DATABASE', 'vantus');

@@ -1,5 +1,3 @@
-import { prisma } from "database";
-import { generateNginxConfig } from "@/lib/nginx-generator";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -10,21 +8,26 @@ export async function POST(request: Request) {
     }
 
     try {
-        const tenants = await prisma.tenant.findMany({
-            include: { domains: true, upstreamPools: true, edgePolicies: true }
+        const CONFIG_RENDERER_URL = process.env.CONFIG_RENDERER_URL || 'http://localhost:3001';
+
+        // Call config-renderer service to generate configs
+        const response = await fetch(`${CONFIG_RENDERER_URL}/render`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({}) // Empty body implies render all tenants
         });
 
-        const files = tenants.flatMap(tenant => {
-            const config = generateNginxConfig(tenant);
-            return tenant.domains.map(domain => ({
-                filename: `${tenant.slug}_${domain.name}.conf`,
-                content: config
-            }));
-        });
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`Config renderer failed with ${response.status}: ${text}`);
+        }
 
-        return NextResponse.json({ files });
+        const data = await response.json();
+        return NextResponse.json(data);
     } catch (e) {
-        console.error("Failed to render all configs", e);
+        console.error("Failed to render all configs via service", e);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
