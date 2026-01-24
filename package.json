@@ -10,13 +10,16 @@
   "scripts": {
     "postinstall": "node scripts/setup-env.js && npm run generate-client && node scripts/try-seed.js",
     "generate-client": "npm run generate --workspace=database",
+    "setup": "tsx scripts/dev-setup.ts",
     "start": "tsx scripts/orchestrator.ts",
+    "dev:all": "npm run setup && npm run dev",
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "dev": "npm run dev --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
   },
   "devDependencies": {
+    "tsx": "^4.7.1",
     "typescript": "^5.0.0",
     "vite": "^7.3.1",
     "vitest": "^4.0.17",

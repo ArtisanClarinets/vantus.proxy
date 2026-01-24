@@ -57,10 +57,16 @@ Clone the repository and install dependencies. This will prompt you to configure
 npm install
 ```
 
-Start the entire platform stack using Docker Compose:
+To initialize the environment (start Docker, Database, and Seed Data) in one go:
 
 ```bash
-docker-compose up -d
+npm run setup
+```
+
+To run the full stack (setup + start apps):
+
+```bash
+npm run dev:all
 ```
 
 ### 2. Accessing the Platform
