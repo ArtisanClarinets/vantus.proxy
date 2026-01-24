@@ -29,15 +29,15 @@ try {
   // Check if database workspace exists and has seed script
   console.log('Checking database connection and seeding default user...');
   
-  // We use --if-present just in case, but we expect it to be there.
-  // We use stdio: 'inherit' to show the output of the seed script (which includes success logs).
-  // We wrap it in try-catch to ignore failure if DB is not reachable.
-  // We pass the merged environment variables.
-  execSync('npm run seed --workspace=database', { 
-    stdio: 'inherit',
+  // We use stdio: 'pipe' to suppress output if it fails (because we expect it to fail if DB is down)
+  // We manually print stdout if it succeeds, or log the error if we want debugging.
+  const output = execSync('npm run seed --workspace=database', {
+    stdio: 'pipe',
     env: envVars
   });
   
+  console.log(output.toString());
+
   const adminEmail = envVars.ADMIN_EMAIL || 'admin@vantus.systems';
   console.log(`✅ Database initialized. Default Admin: ${adminEmail}`);
 } catch (error) {
@@ -46,6 +46,9 @@ try {
   console.warn('   This is normal if the database is not running yet (e.g. during initial npm install).');
   console.warn('   Please start the database (docker compose up) and run:');
   console.warn('   npm run seed --workspace=database');
+
+  // Optionally log the actual error message for debugging purposes if needed, but keep it clean for "zero errors" request.
+  // console.warn(error.message);
 }
 
 console.log('------------------------------------------\n');

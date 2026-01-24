@@ -3,6 +3,33 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "database";
 
 /**
+ * Email Sender Interface
+ * In a real production environment, replace the implementation of sendEmail
+ * with a provider like Resend, SendGrid, or AWS SES.
+ */
+interface EmailOptions {
+    to: string;
+    subject: string;
+    text: string;
+}
+
+async function sendEmail({ to, subject, text }: EmailOptions) {
+    // Check for production email provider API keys here
+    // if (process.env.RESEND_API_KEY) { ... }
+
+    // For now, structured logging for development/simulation
+    console.info(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        level: 'INFO',
+        component: 'AUTH_EMAIL',
+        action: 'SEND_EMAIL',
+        to,
+        subject,
+        body_preview: text.substring(0, 50) + '...'
+    }));
+}
+
+/**
  * Better Auth Configuration
  * 
  * Configures the authentication system using Prisma adapter.
@@ -22,8 +49,11 @@ export const auth = betterAuth({
      * @param {string} params.url - The reset URL.
      */
     sendResetPassword: async ({ user, url, token }) => {
-        // In production, use a real email provider (e.g., Resend, SendGrid)
-        console.log(`[AUTH] Reset password for ${user.email}: ${url}`);
+        await sendEmail({
+            to: user.email,
+            subject: "Reset your password",
+            text: `Click here to reset your password: ${url}`
+        });
     },
   },
   emailVerification: {
@@ -36,8 +66,11 @@ export const auth = betterAuth({
      * @param {string} params.url - The verification URL.
      */
     sendVerificationEmail: async ({ user, url, token }) => {
-        // In production, use a real email provider
-        console.log(`[AUTH] Verify email for ${user.email}: ${url}`);
+        await sendEmail({
+            to: user.email,
+            subject: "Verify your email address",
+            text: `Click here to verify your email address: ${url}`
+        });
     },
   },
   session: {
