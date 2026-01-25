@@ -42,13 +42,14 @@ try {
   console.log(`✅ Database initialized. Default Admin: ${adminEmail}`);
 } catch (error) {
   // Check if it's likely a connection error (exit code 1 is generic, but usually DB down)
-  console.warn('\n⚠️  Database initialization skipped or failed.');
-  console.warn('   This is normal if the database is not running yet (e.g. during initial npm install).');
-  console.warn('   Please start the database (docker compose up) and run:');
-  console.warn('   npm run seed --workspace=database');
-
-  // Optionally log the actual error message for debugging purposes if needed, but keep it clean for "zero errors" request.
-  // console.warn(error.message);
+  console.warn(`\n⚠️  Database initialization skipped (DB likely not running).`);
+  console.warn('\n=======================================================');
+  console.warn('   🚀 NEXT STEPS TO START DEVELOPMENT');
+  console.warn('=======================================================');
+  console.warn('   1. Run the one-click setup script:');
+  console.warn('      \x1b[32mnpm run setup\x1b[0m');
+  console.warn('\n   This will start Docker, seed the DB, and get you ready.');
+  console.warn('=======================================================\n');
 }
 
 console.log('------------------------------------------\n');

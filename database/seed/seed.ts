@@ -116,6 +116,13 @@ async function main() {
         }
     });
   }
+
+  console.log('\n✅ Database Seeded Successfully!');
+  console.log('-------------------------------------------------------');
+  console.log('🔑 Default Admin Credentials:');
+  console.log(`   Email:    ${adminEmail}`);
+  console.log(`   Password: ${adminPassword}`);
+  console.log('-------------------------------------------------------');
 }
 
 main()
