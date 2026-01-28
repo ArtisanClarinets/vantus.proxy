@@ -43,6 +43,19 @@ try {
 } catch (error) {
   // Check if it's likely a connection error (exit code 1 is generic, but usually DB down)
   console.warn(`\n⚠️  Database initialization skipped (DB likely not running).`);
+  
+  if (error.stdout && error.stdout.toString().trim()) {
+      console.warn('--- stdout ---');
+      console.warn(error.stdout.toString());
+  }
+  if (error.stderr && error.stderr.toString().trim()) {
+      console.warn('--- stderr ---');
+      console.warn(error.stderr.toString());
+  } else if (error.message) {
+      console.warn('--- error message ---');
+      console.warn(error.message);
+  }
+
   console.warn('\n=======================================================');
   console.warn('   🚀 NEXT STEPS TO START DEVELOPMENT');
   console.warn('=======================================================');

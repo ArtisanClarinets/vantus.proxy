@@ -42,20 +42,22 @@ if ! command -v mariadb &> /dev/null; then
     sudo apt-get install -y mariadb-server libmariadb-dev
     sudo systemctl enable mariadb
     sudo systemctl start mariadb
-    
-    # Secure installation (automated)
-    echo -e "${BLUE}Configuring MariaDB...${NC}"
-    # Set root password if not set (this is a basic setup, assumes fresh install)
-    # We will rely on the user providing the password in the setup step to match what they configure here manually or we default it.
-    # For a truly automated script, we might need to pre-seed the password, but interactive is safer for now or assume password123 for dev/demo.
-    
-    # Create database if not exists
-    sudo mysql -e "CREATE DATABASE IF NOT EXISTS vantus;"
-    # Create root user with password if not exists (or update) - simplifying for script
-    sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'password123'; FLUSH PRIVILEGES;"
 else
-    echo -e "${BLUE}MariaDB is already installed. Skipping.${NC}"
+    echo -e "${BLUE}MariaDB is already installed. Skipping installation.${NC}"
 fi
+
+# Secure installation (automated) - Always run this to ensure DB/User exists
+echo -e "${BLUE}Configuring MariaDB...${NC}"
+
+# Create database if not exists
+sudo mysql -e "CREATE DATABASE IF NOT EXISTS vantus;"
+sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`vantus.proxy\`;" # Handle user preference variant
+
+# Create root user with password if not exists (or update)
+# We use 'IF NOT EXISTS' logic or explicit GRANT to be idempotent
+sudo mysql -e "CREATE USER IF NOT EXISTS 'root'@'localhost' IDENTIFIED BY 'password123';"
+sudo mysql -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;"
+sudo mysql -e "FLUSH PRIVILEGES;"
 
 # Install Nginx
 if ! command -v nginx &> /dev/null; then
@@ -87,10 +89,6 @@ fi
 
 echo -e "${BLUE}Installing NPM dependencies...${NC}"
 npm install
-
-echo -e "${BLUE}Running Project Setup (Environment Variables)...${NC}"
-# This is interactive.
-npm run postinstall
 
 echo -e "${BLUE}Building Project...${NC}"
 npm run build
